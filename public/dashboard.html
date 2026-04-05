@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lead Signal Engine — Dashboard</title>
+  <style>
+    /* ── Reset & base ──────────────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #0d0f14;
+      --surface:   #161921;
+      --surface2:  #1e2230;
+      --border:    #2a2f3f;
+      --text:      #e2e6f0;
+      --muted:     #6b7280;
+      --accent:    #6366f1;
+      --hot:       #ef4444;
+      --warm:      #f59e0b;
+      --cold:      #3b82f6;
+      --sold:      #10b981;
+      --contacted: #8b5cf6;
+      --radius:    8px;
+      --font:      'Inter', system-ui, -apple-system, sans-serif;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+      font-size: 14px;
+      min-height: 100vh;
+    }
+
+    /* ── Layout ─────────────────────────────────────────────────────────────── */
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 24px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+
+    .header-brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .header-brand .dot {
+      width: 10px; height: 10px;
+      background: var(--accent);
+      border-radius: 50%;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0.4; }
+    }
+
+    .header-brand h1 { font-size: 16px; font-weight: 600; letter-spacing: 0.01em; }
+
+    .header-right { display: flex; align-items: center; gap: 12px; }
+
+    .badge-count {
+      background: var(--accent);
+      color: #fff;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 99px;
+    }
+
+    .last-updated {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .main { padding: 24px; max-width: 1400px; margin: 0 auto; }
+
+    /* ── Stats bar ──────────────────────────────────────────────────────────── */
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+
+    .stat-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px 16px;
+    }
+
+    .stat-card .label { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; }
+    .stat-card .value { font-size: 26px; font-weight: 700; margin-top: 4px; }
+    .stat-card.hot   .value { color: var(--hot); }
+    .stat-card.warm  .value { color: var(--warm); }
+    .stat-card.cold  .value { color: var(--cold); }
+    .stat-card.total .value { color: var(--accent); }
+
+    /* ── Filter bar ─────────────────────────────────────────────────────────── */
+    .filters {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 16px;
+      align-items: center;
+    }
+
+    .filters label { color: var(--muted); font-size: 12px; }
+
+    .filters select,
+    .filters input {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 6px;
+      padding: 6px 10px;
+      font-size: 13px;
+      outline: none;
+    }
+
+    .filters select:focus,
+    .filters input:focus { border-color: var(--accent); }
+
+    .btn {
+      padding: 6px 14px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      border: none;
+      transition: opacity 0.15s;
+    }
+    .btn:hover { opacity: 0.85; }
+    .btn-accent { background: var(--accent); color: #fff; }
+    .btn-ghost  { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+
+    /* ── Table ──────────────────────────────────────────────────────────────── */
+    .table-wrap {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    thead th {
+      text-align: left;
+      padding: 12px 14px;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+    }
+
+    tbody tr {
+      border-bottom: 1px solid var(--border);
+      transition: background 0.1s;
+    }
+
+    tbody tr:last-child { border-bottom: none; }
+    tbody tr:hover { background: var(--surface2); }
+
+    td {
+      padding: 12px 14px;
+      vertical-align: top;
+      max-width: 260px;
+    }
+
+    /* Content cell — truncate with expand on click */
+    .content-cell {
+      max-width: 260px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      cursor: pointer;
+      color: var(--text);
+    }
+    .content-cell.expanded {
+      white-space: normal;
+      overflow: visible;
+    }
+
+    /* AI reply cell */
+    .reply-cell {
+      max-width: 240px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      cursor: pointer;
+      color: #a5b4fc;
+      font-style: italic;
+      font-size: 12px;
+    }
+    .reply-cell.expanded {
+      white-space: normal;
+      overflow: visible;
+    }
+
+    /* ── Badges ─────────────────────────────────────────────────────────────── */
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 99px;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .badge-HOT  { background: rgba(239,68,68,0.15);  color: var(--hot); }
+    .badge-WARM { background: rgba(245,158,11,0.15); color: var(--warm); }
+    .badge-COLD { background: rgba(59,130,246,0.15); color: var(--cold); }
+
+    .status-badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 99px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .status-new       { background: rgba(99,102,241,0.15); color: #818cf8; }
+    .status-contacted { background: rgba(139,92,246,0.15); color: #a78bfa; }
+    .status-sold      { background: rgba(16,185,129,0.15); color: var(--sold); }
+    .status-dismissed { background: rgba(107,114,128,0.15); color: var(--muted); }
+
+    /* ── Action buttons ─────────────────────────────────────────────────────── */
+    .action-btns { display: flex; gap: 6px; flex-wrap: wrap; }
+
+    .action-btns button {
+      padding: 4px 10px;
+      border-radius: 5px;
+      font-size: 11px;
+      font-weight: 600;
+      border: none;
+      cursor: pointer;
+      transition: opacity 0.15s;
+    }
+    .action-btns button:hover { opacity: 0.8; }
+
+    .btn-sold      { background: rgba(16,185,129,0.2);  color: var(--sold); }
+    .btn-contacted { background: rgba(139,92,246,0.2);  color: #a78bfa; }
+    .btn-dismiss   { background: rgba(107,114,128,0.15); color: var(--muted); }
+
+    /* ── Empty state ────────────────────────────────────────────────────────── */
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--muted);
+    }
+    .empty-state .icon { font-size: 40px; margin-bottom: 12px; }
+    .empty-state p { font-size: 14px; }
+
+    /* ── Loading ────────────────────────────────────────────────────────────── */
+    .spinner {
+      display: inline-block;
+      width: 14px; height: 14px;
+      border: 2px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      vertical-align: middle;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Responsive ─────────────────────────────────────────────────────────── */
+    @media (max-width: 768px) {
+      .main { padding: 12px; }
+      .header { padding: 12px 16px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── Header ──────────────────────────────────────────────────────────────── -->
+<header class="header">
+  <div class="header-brand">
+    <div class="dot"></div>
+    <h1>Lead Signal Engine</h1>
+  </div>
+  <div class="header-right">
+    <span class="last-updated" id="lastUpdated">Loading...</span>
+    <span class="badge-count" id="totalBadge">0</span>
+  </div>
+</header>
+
+<!-- ── Main ────────────────────────────────────────────────────────────────── -->
+<main class="main">
+
+  <!-- Stats bar -->
+  <div class="stats">
+    <div class="stat-card total">
+      <div class="label">Total Leads</div>
+      <div class="value" id="statTotal">—</div>
+    </div>
+    <div class="stat-card hot">
+      <div class="label">HOT</div>
+      <div class="value" id="statHot">—</div>
+    </div>
+    <div class="stat-card warm">
+      <div class="label">WARM</div>
+      <div class="value" id="statWarm">—</div>
+    </div>
+    <div class="stat-card cold">
+      <div class="label">COLD</div>
+      <div class="value" id="statCold">—</div>
+    </div>
+  </div>
+
+  <!-- Filter bar -->
+  <div class="filters">
+    <label>Client</label>
+    <select id="filterClient">
+      <option value="">All clients</option>
+    </select>
+
+    <label>Intent</label>
+    <select id="filterIntent">
+      <option value="">All intents</option>
+      <option value="HOT">HOT</option>
+      <option value="WARM">WARM</option>
+      <option value="COLD">COLD</option>
+    </select>
+
+    <label>Status</label>
+    <select id="filterStatus">
+      <option value="">All statuses</option>
+      <option value="new">New</option>
+      <option value="contacted">Contacted</option>
+      <option value="sold">Sold</option>
+      <option value="dismissed">Dismissed</option>
+    </select>
+
+    <button class="btn btn-accent" onclick="loadLeads()">Apply</button>
+    <button class="btn btn-ghost"  onclick="resetFilters()">Reset</button>
+
+    <span id="loadingIndicator" style="display:none"><span class="spinner"></span></span>
+  </div>
+
+  <!-- Table -->
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Intent</th>
+          <th>Client</th>
+          <th>Niche</th>
+          <th>Keyword</th>
+          <th>Content</th>
+          <th>Source</th>
+          <th>AI Reply</th>
+          <th>Status</th>
+          <th>Created</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="leadsBody">
+        <tr>
+          <td colspan="11">
+            <div class="empty-state">
+              <div class="icon">⚡</div>
+              <p>Loading leads...</p>
+            </div>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+</main>
+
+<script>
+  // ── State ──────────────────────────────────────────────────────────────────
+  let allLeads = [];
+  let autoRefreshTimer = null;
+
+  // ── Init ───────────────────────────────────────────────────────────────────
+  document.addEventListener('DOMContentLoaded', () => {
+    loadClients();
+    loadLeads();
+    startAutoRefresh();
+  });
+
+  // ── Auto-refresh every 5 seconds ──────────────────────────────────────────
+  function startAutoRefresh() {
+    clearInterval(autoRefreshTimer);
+    autoRefreshTimer = setInterval(loadLeads, 5000);
+  }
+
+  // ── Load clients into filter dropdown ─────────────────────────────────────
+  async function loadClients() {
+    try {
+      const res = await fetch('/api/clients');
+      const clients = await res.json();
+      const sel = document.getElementById('filterClient');
+      clients.forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c.id;
+        opt.textContent = c.name + (c.niche ? ` (${c.niche})` : '');
+        sel.appendChild(opt);
+      });
+    } catch (e) {
+      console.error('Failed to load clients', e);
+    }
+  }
+
+  // ── Load leads ─────────────────────────────────────────────────────────────
+  async function loadLeads() {
+    const intent   = document.getElementById('filterIntent').value;
+    const clientId = document.getElementById('filterClient').value;
+    const status   = document.getElementById('filterStatus').value;
+
+    const params = new URLSearchParams();
+    if (intent)   params.set('intent',    intent);
+    if (clientId) params.set('client_id', clientId);
+    if (status)   params.set('status',    status);
+    params.set('limit', '200');
+
+    document.getElementById('loadingIndicator').style.display = 'inline';
+
+    try {
+      const res   = await fetch('/api/leads?' + params.toString());
+      allLeads    = await res.json();
+      renderLeads(allLeads);
+      updateStats(allLeads);
+      document.getElementById('lastUpdated').textContent = 'Updated ' + new Date().toLocaleTimeString();
+    } catch (e) {
+      console.error('Failed to load leads', e);
+    } finally {
+      document.getElementById('loadingIndicator').style.display = 'none';
+    }
+  }
+
+  // ── Render leads table ────────────────────────────────────────────────────
+  function renderLeads(leads) {
+    const tbody = document.getElementById('leadsBody');
+    document.getElementById('totalBadge').textContent = leads.length;
+
+    if (!leads.length) {
+      tbody.innerHTML = `
+        <tr><td colspan="11">
+          <div class="empty-state">
+            <div class="icon">🔍</div>
+            <p>No leads match the current filters.</p>
+          </div>
+        </td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = leads.map(lead => `
+      <tr id="row-${lead.id}">
+        <td style="color:var(--muted);font-size:12px">${lead.id}</td>
+        <td><span class="badge badge-${lead.intent}">${lead.intent}</span></td>
+        <td style="font-weight:600">${esc(lead.client_name || '—')}</td>
+        <td style="color:var(--muted)">${esc(lead.client_niche || '—')}</td>
+        <td><code style="background:var(--surface2);padding:2px 6px;border-radius:4px;font-size:12px">${esc(lead.keyword || '—')}</code></td>
+        <td>
+          <div class="content-cell" onclick="toggleExpand(this)" title="Click to expand">
+            ${esc(lead.content || '—')}
+          </div>
+        </td>
+        <td style="color:var(--muted);font-size:12px">${esc(lead.source || '—')}</td>
+        <td>
+          <div class="reply-cell" onclick="toggleExpand(this)" title="Click to expand">
+            ${esc(lead.ai_reply || '—')}
+          </div>
+        </td>
+        <td><span class="status-badge status-${lead.status}">${lead.status}</span></td>
+        <td style="color:var(--muted);font-size:12px;white-space:nowrap">${formatDate(lead.created_at)}</td>
+        <td>
+          <div class="action-btns">
+            <button class="btn-sold"      onclick="updateStatus(${lead.id}, 'sold')">Sold</button>
+            <button class="btn-contacted" onclick="updateStatus(${lead.id}, 'contacted')">Contacted</button>
+            <button class="btn-dismiss"   onclick="updateStatus(${lead.id}, 'dismissed')">Dismiss</button>
+          </div>
+        </td>
+      </tr>
+    `).join('');
+  }
+
+  // ── Stats ─────────────────────────────────────────────────────────────────
+  function updateStats(leads) {
+    document.getElementById('statTotal').textContent = leads.length;
+    document.getElementById('statHot').textContent   = leads.filter(l => l.intent === 'HOT').length;
+    document.getElementById('statWarm').textContent  = leads.filter(l => l.intent === 'WARM').length;
+    document.getElementById('statCold').textContent  = leads.filter(l => l.intent === 'COLD').length;
+  }
+
+  // ── Update lead status ─────────────────────────────────────────────────────
+  async function updateStatus(id, status) {
+    try {
+      const res = await fetch(`/api/leads/${id}/status`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      // Reload to reflect change
+      loadLeads();
+    } catch (e) {
+      alert('Failed to update status: ' + e.message);
+    }
+  }
+
+  // ── Filters ───────────────────────────────────────────────────────────────
+  function resetFilters() {
+    document.getElementById('filterIntent').value  = '';
+    document.getElementById('filterClient').value  = '';
+    document.getElementById('filterStatus').value  = '';
+    loadLeads();
+  }
+
+  // ── Helpers ───────────────────────────────────────────────────────────────
+  function toggleExpand(el) {
+    el.classList.toggle('expanded');
+  }
+
+  function esc(str) {
+    if (!str) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  function formatDate(iso) {
+    if (!iso) return '—';
+    const d = new Date(iso);
+    return d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  }
+</script>
+
+</body>
+</html>
